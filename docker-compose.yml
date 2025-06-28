@@ -1,0 +1,42 @@
+version: '3.8'
+services:
+  mosquitto:
+    image: eclipse-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto_config:/mosquitto/config
+
+  listener:
+    build:
+      context: .
+      dockerfile: Dockerfile.listener
+    depends_on:
+      - mosquitto
+      - db
+    volumes:
+      - ./data:/app/data
+
+  publisher:
+    build:
+      context: .
+      dockerfile: Dockerfile.publisher
+    depends_on:
+      - mosquitto
+    command: ["./wait-for-it.sh", "mosquitto:1883", "--", "python", "mqtt/publisher.py"]
+
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: sensoruser
+      POSTGRES_PASSWORD: sensorpass
+      POSTGRES_DB: sensordata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+volumes:
+  pgdata:
